@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Signal Engine v5 — Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060a12;--bg2:#090f1c;--bg3:#0c1424;--bg4:#0f1a2e;
+  --acc:#00e5b0;--acc2:#f59e0b;--acc3:#ef4444;--acc4:#3b82f6;--acc5:#a855f7;
+  --txt:#dde6f0;--txt2:#7a97b8;--txt3:#3d5470;
+  --bdr:#162438;--bdr2:#1e3352;
+  --win:#00e5b0;--loss:#ef4444;--run:#3b82f6;
+}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:14px;overflow-x:hidden}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+
+/* ── grid noise bg ── */
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle at 20% 50%, rgba(0,229,176,0.03) 0%, transparent 50%),radial-gradient(circle at 80% 20%, rgba(59,130,246,0.03) 0%, transparent 50%);pointer-events:none;z-index:0}
+
+.dash{display:flex;flex-direction:column;gap:8px;padding:10px;min-height:100vh;position:relative;z-index:1}
+
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--bdr2);border-radius:8px;padding:8px 16px;flex-wrap:wrap;gap:8px;position:relative;overflow:hidden}
+.topbar::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent)}
+.logo{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--acc);text-shadow:0 0 12px rgba(0,229,176,0.4)}
+.logo span{color:var(--txt3)}
+.status-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;transition:all .3s;flex-shrink:0}
+.dot.green{background:var(--acc);box-shadow:0 0 6px var(--acc)}
+.dot.red{background:var(--acc3);box-shadow:0 0 4px var(--acc3)}
+.dot.orange{background:var(--acc2);box-shadow:0 0 4px var(--acc2)}
+.dot.gray{background:var(--txt3)}
+.stxt{font-size:11px;color:var(--txt2);font-family:'Space Mono',monospace;letter-spacing:.5px}
+.clock{font-size:12px;color:var(--acc);font-family:'Space Mono',monospace;min-width:70px;text-align:right}
+.vsep{width:1px;height:16px;background:var(--bdr2)}
+
+/* ── layouts ── */
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.row2{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.row2b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+@media(max-width:1100px){.row3{grid-template-columns:1fr 1fr}.row4{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.row3,.row4,.row2,.row2b{grid-template-columns:1fr}}
+
+/* ── panel ── */
+.panel{background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;overflow:hidden;position:relative}
+.panel::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent);pointer-events:none}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--bdr);background:var(--bg3)}
+.pt{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--txt2);text-transform:uppercase;font-family:'Space Mono',monospace}
+.pb{padding:10px}
+.badge-new{font-size:8px;background:rgba(0,229,176,.15);color:var(--acc);border:1px solid rgba(0,229,176,.3);border-radius:3px;padding:1px 5px;letter-spacing:1px}
+
+/* ── symbol cards ── */
+.sym-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.scard{background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;padding:7px 9px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.scard:hover{border-color:var(--acc);background:var(--bg4)}
+.scard.buy{border-color:rgba(0,229,176,.4);background:rgba(0,229,176,.03)}
+.scard.buy::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc)}
+.scard.sell{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.03)}
+.scard.sell::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc3)}
+.scard.locked{border-color:rgba(245,158,11,.4);}
+.scard.locked::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc2)}
+.sname{font-size:10px;font-weight:700;color:var(--txt2);letter-spacing:.5px;font-family:'Space Mono',monospace}
+.sprice{font-size:13px;font-weight:700;color:var(--txt);margin:2px 0;font-family:'Space Mono',monospace}
+.sbadge{font-size:8px;font-weight:700;letter-spacing:1px;padding:1px 5px;border-radius:3px;display:inline-block;margin-top:2px}
+.sbadge.buy{background:rgba(0,229,176,.12);color:var(--acc);border:1px solid rgba(0,229,176,.25)}
+.sbadge.sell{background:rgba(239,68,68,.12);color:var(--acc3);border:1px solid rgba(239,68,68,.25)}
+.sbadge.hold{background:rgba(122,151,184,.07);color:var(--txt3);border:1px solid var(--bdr)}
+.sbadge.lock{background:rgba(245,158,11,.12);color:var(--acc2);border:1px solid rgba(245,158,11,.25)}
+.sprob{font-size:9px;color:var(--txt3);margin-top:1px;font-family:'Space Mono',monospace}
+
+/* ── buttons ── */
+.brow{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px}
+.brow.full{grid-template-columns:1fr}
+.brow.tri{grid-template-columns:1fr 1fr 1fr}
+.btn{padding:7px 10px;border-radius:5px;border:1px solid var(--bdr);background:var(--bg3);color:var(--txt2);font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.8px;cursor:pointer;transition:all .15s;text-align:center;text-transform:uppercase}
+.btn:hover{border-color:var(--acc);color:var(--acc);background:var(--bg4)}
+.btn:active{transform:scale(.97)}
+.btn.p{border-color:rgba(0,229,176,.4);color:var(--acc);background:rgba(0,229,176,.06)}
+.btn.p:hover{background:rgba(0,229,176,.12)}
+.btn.d{border-color:rgba(239,68,68,.4);color:var(--acc3);background:rgba(239,68,68,.06)}
+.btn.d:hover{background:rgba(239,68,68,.12)}
+.btn.w{border-color:rgba(245,158,11,.4);color:var(--acc2);background:rgba(245,158,11,.06)}
+.btn.w:hover{background:rgba(245,158,11,.12)}
+.btn.running{background:rgba(0,229,176,.1);color:var(--acc);border-color:var(--acc);animation:gpulse 2s ease-in-out infinite}
+@keyframes gpulse{0%,100%{box-shadow:0 0 0 0 rgba(0,229,176,.3)}50%{box-shadow:0 0 0 5px transparent}}
+
+/* ── toggles ── */
+.trow{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bdr)}
+.trow:last-child{border-bottom:none}
+.tlbl{font-size:10px;color:var(--txt2);letter-spacing:.3px;font-weight:600}
+.tog{position:relative;width:32px;height:17px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0;position:absolute}
+.ts{position:absolute;inset:0;background:var(--bg4);border-radius:9px;transition:.2s;border:1px solid var(--bdr);cursor:pointer}
+.ts::after{content:'';position:absolute;left:3px;top:3px;width:9px;height:9px;background:var(--txt3);border-radius:50%;transition:.2s}
+.tog input:checked+.ts{background:rgba(0,229,176,.15);border-color:var(--acc)}
+.tog input:checked+.ts::after{transform:translateX(15px);background:var(--acc);box-shadow:0 0 4px var(--acc)}
+
+/* ── feed ── */
+.feed{display:flex;flex-direction:column;gap:3px;max-height:190px;overflow-y:auto}
+.fitem{background:var(--bg3);border:1px solid var(--bdr);border-radius:5px;padding:6px 9px;display:flex;align-items:center;gap:7px;font-size:10px;border-left:2px solid transparent;cursor:pointer;transition:background .1s}
+.fitem:hover{background:var(--bg4)}
+.fitem.win{border-left-color:var(--win)}
+.fitem.loss{border-left-color:var(--loss)}
+.fitem.running{border-left-color:var(--run)}
+.fitem.expired{border-left-color:var(--txt3)}
+.fsym{font-weight:700;min-width:60px;font-family:'Space Mono',monospace;font-size:9px}
+.fmeta{color:var(--txt2);flex:1;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Space Mono',monospace}
+.ftime{color:var(--txt3);font-size:8px;margin-left:auto;white-space:nowrap;font-family:'Space Mono',monospace}
+
+/* ── score ── */
+.scgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+.sc{background:var(--bg3);border:1px solid var(--bdr);border-radius:5px;padding:7px;text-align:center}
+.scn{font-size:20px;font-weight:700;font-family:'Space Mono',monospace}
+.scl{font-size:8px;color:var(--txt3);letter-spacing:1px;margin-top:2px;font-weight:600}
+.scn.g{color:var(--win)}.scn.r{color:var(--loss)}.scn.o{color:var(--acc2)}.scn.b{color:var(--run)}
+
+/* ── bar ── */
+.barlabel{font-size:9px;color:var(--txt3);margin-bottom:3px;font-family:'Space Mono',monospace}
+.barbg{background:var(--bg);border-radius:3px;height:4px;overflow:hidden;border:1px solid var(--bdr)}
+.barfill{height:100%;border-radius:3px;transition:width .6s ease}
+
+/* ── param rows ── */
+.pr{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bdr)}
+.pr:last-child{border-bottom:none}
+.pk{font-size:10px;color:var(--txt2);font-weight:500}
+.pv{font-size:10px;font-weight:700;color:var(--acc);font-family:'Space Mono',monospace}
+.pv.r{color:var(--acc3)}.pv.o{color:var(--acc2)}.pv.b{color:var(--acc4)}.pv.g{color:var(--win)}
+
+/* ── regime ── */
+.ri{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid var(--bdr)}
+.ri:last-child{border-bottom:none}
+.rd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.rd.t{background:var(--win)}.rd.rv{background:var(--acc4)}.rd.v{background:var(--acc3)}.rd.n{background:var(--txt3)}
+.rsym{font-size:10px;color:var(--txt2);flex:1;font-family:'Space Mono',monospace;font-size:9px}
+.rval{font-size:9px;font-weight:700;font-family:'Space Mono',monospace}
+.rval.t{color:var(--win)}.rval.rv{color:var(--acc4)}.rval.v{color:var(--acc3)}.rval.n{color:var(--txt3)}
+.radx{font-size:8px;color:var(--txt3);font-family:'Space Mono',monospace}
+
+/* ── killzones ── */
+.kzbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.kzpill{font-size:9px;padding:3px 9px;border-radius:10px;background:var(--bg4);border:1px solid var(--bdr);color:var(--txt3);transition:all .2s;font-family:'Space Mono',monospace}
+.kzpill.active{background:rgba(0,229,176,.1);border-color:var(--acc);color:var(--acc);box-shadow:0 0 8px rgba(0,229,176,.15)}
+
+/* ── learning panel ── */
+.learn-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:200px;overflow-y:auto}
+.lcard{background:var(--bg3);border:1px solid var(--bdr);border-radius:5px;padding:6px 8px;position:relative}
+.lcard.warning{border-color:rgba(245,158,11,.3)}
+.lcard.danger{border-color:rgba(239,68,68,.3)}
+.lsym{font-size:9px;font-weight:700;color:var(--txt);font-family:'Space Mono',monospace}
+.lbar{height:3px;border-radius:2px;background:var(--bdr);margin:4px 0;overflow:hidden}
+.lbarfill{height:100%;border-radius:2px;transition:width .5s}
+.lstat{font-size:8px;color:var(--txt3);font-family:'Space Mono',monospace;display:flex;justify-content:space-between}
+.lprob{font-size:9px;font-weight:700;font-family:'Space Mono',monospace}
+
+/* ── log ── */
+.logbox{background:var(--bg);border:1px solid var(--bdr);border-radius:5px;padding:8px;font-size:9px;max-height:100px;overflow-y:auto;line-height:1.9;font-family:'Space Mono',monospace}
+.ll .a{color:var(--acc)}.ll .w{color:var(--acc2)}.ll .e{color:var(--acc3)}.ll .i{color:var(--acc4)}.ll .t{color:var(--txt3)}
+
+/* ── symbol per-row ── */
+.sym-table{width:100%;border-collapse:collapse;font-size:10px}
+.sym-table th{text-align:left;padding:4px 6px;color:var(--txt3);font-size:8px;letter-spacing:1px;font-family:'Space Mono',monospace;border-bottom:1px solid var(--bdr)}
+.sym-table td{padding:4px 6px;border-bottom:1px solid var(--bdr);font-family:'Space Mono',monospace;font-size:9px}
+.sym-table tr:last-child td{border-bottom:none}
+.sym-table tr:hover td{background:var(--bg3)}
+
+/* ── modal ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--acc);border-radius:10px;padding:18px;width:340px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 0 40px rgba(0,229,176,.1)}
+.mtitle{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--acc);margin-bottom:12px;font-family:'Space Mono',monospace}
+
+/* ── toast ── */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--bg2);border:1px solid var(--acc);border-radius:6px;padding:8px 13px;font-size:10px;color:var(--acc);z-index:9999;transform:translateY(60px);transition:transform .25s ease;pointer-events:none;font-family:'Space Mono',monospace}
+.toast.show{transform:translateY(0)}
+.toast.err{border-color:var(--acc3);color:var(--acc3)}
+.toast.warn{border-color:var(--acc2);color:var(--acc2)}
+
+/* ── interval ── */
+.introw{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:5px}
+.sep{display:flex;align-items:center;gap:8px;padding:5px 0}
+.sepl{flex:1;height:1px;background:var(--bdr)}
+.sept{font-size:9px;color:var(--txt3);letter-spacing:1px;white-space:nowrap;font-family:'Space Mono',monospace}
+
+/* ── open trade lock indicator ── */
+.lock-badge{font-size:8px;background:rgba(245,158,11,.12);color:var(--acc2);border:1px solid rgba(245,158,11,.25);border-radius:3px;padding:1px 5px;margin-left:4px;font-family:'Space Mono',monospace}
+</style>
+</head>
+<body>
+<div class="dash">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">▸ AI<span>/</span>SIGNAL<span>/</span>ENGINE <span style="color:var(--acc)">v5</span></div>
+  <div class="status-row">
+    <span class="dot gray" id="d-api"></span><span class="stxt" id="s-api">API</span>
+    <div class="vsep"></div>
+    <span class="dot gray" id="d-bot"></span><span class="stxt" id="s-bot">BOT IDLE</span>
+    <div class="vsep"></div>
+    <span class="dot gray" id="d-ws"></span><span class="stxt">LIVE</span>
+    <div class="vsep"></div>
+    <span class="stxt" id="open-badge" style="color:var(--acc2)">0 OPEN</span>
+  </div>
+  <div class="clock" id="clock">--:--:--</div>
+</div>
+
+<!-- ROW 1: SYMBOLS (11 pairs) + CONTROLS + FILTERS -->
+<div class="row3">
+
+  <!-- SYMBOLS -->
+  <div class="panel">
+    <div class="ph">
+      <span class="pt">◈ Symbols</span>
+      <span class="stxt" id="sym-count-lbl">11 PAIRS</span>
+    </div>
+    <div class="pb">
+      <div class="sym-grid" id="sym-grid">
+        <!-- cards injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="panel">
+    <div class="ph"><span class="pt">⚡ Controls</span><span class="stxt" id="mode-lbl">NORMAL MODE</span></div>
+    <div class="pb" style="display:flex;flex-direction:column;gap:5px">
+      <div class="brow">
+        <button class="btn p" id="btn-start" onclick="startBot()">▶ START</button>
+        <button class="btn d" onclick="stopBot()">■ STOP</button>
+      </div>
+      <div class="brow full">
+        <button class="btn w" onclick="forceScan()">⟳ FORCE SCAN NOW</button>
+      </div>
+      <div class="brow">
+        <button class="btn" onclick="fetchScoreboard()">📊 SCOREBOARD</button>
+        <button class="btn" onclick="fetchReport()">📋 REPORT</button>
+      </div>
+      <div class="brow">
+        <button class="btn" onclick="clearOpenSignals()">⌫ CLEAR OPEN</button>
+        <button class="btn" onclick="clearLog()">✕ CLEAR LOG</button>
+      </div>
+      <div class="brow full">
+        <button class="btn" onclick="showLearningModal()">🧠 LEARNING STATE</button>
+      </div>
+      <div class="sep"><div class="sepl"></div><span class="sept">Scan Interval</span><div class="sepl"></div></div>
+      <div class="introw" id="introw">
+        <button class="btn" id="i1"  onclick="setInterval_(1)">1m</button>
+        <button class="btn p" id="i5" onclick="setInterval_(5)">5m</button>
+        <button class="btn" id="i15" onclick="setInterval_(15)">15m</button>
+        <button class="btn" id="i60" onclick="setInterval_(60)">1h</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="panel">
+    <div class="ph"><span class="pt">◉ Filters</span></div>
+    <div class="pb">
+      <div class="trow"><span class="tlbl">KILLZONE GATE</span><label class="tog"><input type="checkbox" id="f-kz" onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">CALENDAR BLOCK</span><label class="tog"><input type="checkbox" id="f-cal" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">SPREAD FILTER</span><label class="tog"><input type="checkbox" id="f-spread" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">VOLATILITY FILTER</span><label class="tog"><input type="checkbox" id="f-vol" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">MARKET QUALITY</span><label class="tog"><input type="checkbox" id="f-mq" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">REGIME FILTER</span><label class="tog"><input type="checkbox" id="f-reg" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">MTF CONFIRM</span><label class="tog"><input type="checkbox" id="f-mtf" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+      <div class="trow"><span class="tlbl">TELEGRAM ALERTS</span><label class="tog"><input type="checkbox" id="f-tg" checked onchange="pushFilter()"><span class="ts"></span></label></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ROW 2: FEED + SCOREBOARD -->
+<div class="row2">
+
+  <div class="panel">
+    <div class="ph">
+      <span class="pt">◈ Live Signal Feed</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="stxt" id="feed-running" style="color:var(--run)">0 RUNNING</span>
+        <span class="stxt" style="color:var(--txt3)">|</span>
+        <span class="stxt" id="feed-win" style="color:var(--win)">0 WIN</span>
+        <span class="stxt" style="color:var(--txt3)">|</span>
+        <span class="stxt" id="feed-loss" style="color:var(--loss)">0 LOSS</span>
+      </div>
+    </div>
+    <div class="pb">
+      <div class="feed" id="feed"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><span class="pt">⊞ Scoreboard</span></div>
+    <div class="pb">
+      <div class="scgrid">
+        <div class="sc"><div class="scn g" id="sc-w">—</div><div class="scl">WINS</div></div>
+        <div class="sc"><div class="scn r" id="sc-l">—</div><div class="scl">LOSSES</div></div>
+        <div class="sc"><div class="scn b" id="sc-r">—</div><div class="scl">RUNNING</div></div>
+        <div class="sc"><div class="scn o" id="sc-wr">—</div><div class="scl">WIN RATE</div></div>
+      </div>
+      <div style="margin-bottom:8px">
+        <div class="barlabel">WIN RATE</div>
+        <div class="barbg"><div class="barfill" id="wr-bar" style="width:0%;background:linear-gradient(90deg,var(--acc4),var(--acc))"></div></div>
+      </div>
+      <div class="pr"><span class="pk">AI MODE</span><span class="pv" id="ai-mode">—</span></div>
+      <div class="pr"><span class="pk">RISK MULT</span><span class="pv" id="risk-mult">—</span></div>
+      <div class="pr"><span class="pk">EXPIRED</span><span class="pv o" id="sc-exp">—</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ROW 3: REGIME + KILLZONES + PER-SYMBOL TABLE -->
+<div class="row3">
+
+  <!-- REGIME -->
+  <div class="panel">
+    <div class="ph"><span class="pt">◉ Market Regime</span></div>
+    <div class="pb" id="regime-panel">
+      <!-- injected by JS from signal data -->
+      <div style="color:var(--txt3);font-size:9px;font-family:'Space Mono',monospace">Loading signals...</div>
+    </div>
+  </div>
+
+  <!-- KILLZONES -->
+  <div class="panel">
+    <div class="ph"><span class="pt">⧖ Killzones</span></div>
+    <div class="pb">
+      <div class="kzbar">
+        <div class="kzpill" id="kz-Asian">Asian 00–03</div>
+        <div class="kzpill" id="kz-London">London 08–10</div>
+        <div class="kzpill" id="kz-NYOpen">NY Open 13–15</div>
+        <div class="kzpill" id="kz-NYClose">NY Close 19–20</div>
+      </div>
+      <div class="pr"><span class="pk">ACTIVE ZONE</span><span class="pv" id="kz-active">NONE</span></div>
+      <div class="pr"><span class="pk">UTC TIME</span><span class="pv" id="utc-t">—</span></div>
+      <div class="pr"><span class="pk">NEXT ZONE</span><span class="pv o" id="kz-next">—</span></div>
+      <div class="pr"><span class="pk">TIME UNTIL</span><span class="pv o" id="kz-until">—</span></div>
+      <div style="margin-top:8px">
+        <div class="barlabel">SESSION PROGRESS</div>
+        <div class="barbg"><div class="barfill" id="kz-prog" style="width:0%;background:var(--acc2)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONE TRADE GUARD STATUS -->
+  <div class="panel">
+    <div class="ph"><span class="pt">🔒 Trade Guard</span><span class="badge-new">NEW</span></div>
+    <div class="pb">
+      <div style="font-size:9px;color:var(--txt3);font-family:'Space Mono',monospace;margin-bottom:8px">One active trade per symbol. New entry only after close.</div>
+      <div id="guard-list" style="display:flex;flex-direction:column;gap:3px">
+        <div style="color:var(--txt3);font-size:9px;font-family:'Space Mono',monospace">Waiting for data...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ROW 4: AUTO-LEARNING + PER-SYMBOL STATS + LOG -->
+<div class="row2b">
+
+  <!-- AUTO-LEARNING ENGINE -->
+  <div class="panel">
+    <div class="ph"><span class="pt">🧠 Auto-Learning Engine</span><span class="badge-new">NEW</span></div>
+    <div class="pb">
+      <div style="font-size:9px;color:var(--txt3);font-family:'Space Mono',monospace;margin-bottom:7px">Min probability raised after losses. Resets on wins. Per-symbol intelligence.</div>
+      <div class="learn-grid" id="learn-grid">
+        <div style="color:var(--txt3);font-size:9px;font-family:'Space Mono',monospace;grid-column:span 2">Start bot to build learning data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PER-SYMBOL SCOREBOARD + LOG -->
+  <div style="display:flex;flex-direction:column;gap:8px">
+
+    <div class="panel">
+      <div class="ph"><span class="pt">◈ Per-Symbol Stats</span></div>
+      <div class="pb" style="padding:6px">
+        <table class="sym-table">
+          <thead><tr><th>SYMBOL</th><th>W</th><th>L</th><th>WR%</th><th>TOTAL</th></tr></thead>
+          <tbody id="sym-stats-body">
+            <tr><td colspan="5" style="color:var(--txt3);text-align:center;padding:8px">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="pt">▸ System Log</span></div>
+      <div class="pb">
+        <div class="logbox" id="logbox"></div>
+        <div class="brow" style="margin-top:6px">
+          <button class="btn" onclick="clearLog()">CLEAR</button>
+          <button class="btn" onclick="refreshAll()">REFRESH</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</div><!-- /dash -->
+
+<!-- MODAL -->
+<div class="overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mtitle" id="mtitle">—</div>
+    <div id="mbody"></div>
+    <button class="btn d" style="width:100%;margin-top:14px" onclick="closeModal()">✕ CLOSE</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────
+const API = "/api";
+const WS_URL = (location.protocol==="https:"?"wss://":"ws://") + location.host + "/ws";
+
+const ALL_SYMBOLS = ["EURUSD","GBPUSD","USDJPY","GOLD","AUDUSD","USDCAD","USDCHF","NZDUSD","EURGBP","GBPJPY","BTCUSD"];
+const CRYPTO_SYMS = ["BTCUSD"];
+const JPY_SYMS    = ["USDJPY","GBPJPY"];
+
+let ws, scanInterval = 5;
+let latestSignals  = {};   // sym → last signal
+let openSymbols    = new Set();  // symbols with active trades
+let learningState  = {};   // sym → {wins,losses,streak,min_prob}
+
+// ── INIT SYMBOL CARDS ─────────────────────────
+function initSymbolCards() {
+  const grid = document.getElementById("sym-grid");
+  grid.innerHTML = "";
+  ALL_SYMBOLS.forEach(sym => {
+    const card = document.createElement("div");
+    card.className = "scard";
+    card.id = "sc-" + sym;
+    card.onclick = () => showSignalDetail(sym);
+    card.innerHTML = `
+      <div class="sname">${sym}</div>
+      <div class="sprice" id="pr-${sym}">—</div>
+      <span class="sbadge hold" id="bg-${sym}">—</span>
+      <div class="sprob" id="prob-${sym}"></div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── TOAST ─────────────────────────────────────
+function toast(msg, type="ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast show" + (type==="err"?" err":type==="warn"?" warn":"");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = "toast", 2800);
+}
+
+// ── CLOCK + UTC ───────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toTimeString().slice(0,8);
+  const h = now.getUTCHours(), m = now.getUTCMinutes();
+  document.getElementById("utc-t").textContent = pad(h)+":"+pad(m)+" UTC";
+  updateKillzones(h, m);
+}
+function pad(n){ return String(n).padStart(2,"0"); }
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── KILLZONES ─────────────────────────────────
+const KZS = { Asian:[0,3], London:[8,10], NYOpen:[13,15], NYClose:[19,20] };
+function updateKillzones(h, m) {
+  let active = null;
+  for (const [name,[s,e]] of Object.entries(KZS)) {
+    const el = document.getElementById("kz-"+name);
+    if (h>=s && h<e) { active=name; if(el) el.className="kzpill active"; }
+    else if (el) el.className="kzpill";
+  }
+  document.getElementById("kz-active").textContent = active ? active.replace("NY","NY ") : "NONE";
+  if (!active) {
+    let best="", mins=9999, nowM=h*60+m;
+    for (const [name,[s]] of Object.entries(KZS)) {
+      const sm=s*60, diff=sm>nowM?sm-nowM:(24*60-nowM+sm);
+      if(diff<mins){mins=diff;best=name;}
+    }
+    document.getElementById("kz-next").textContent = best.replace("NY","NY ");
+    document.getElementById("kz-until").textContent = mins+" min";
+    document.getElementById("kz-prog").style.width = "0%";
+  } else {
+    const [s,e]=KZS[active];
+    const prog=((h-s)*60+m)/((e-s)*60)*100;
+    document.getElementById("kz-prog").style.width = Math.min(prog,100).toFixed(1)+"%";
+    document.getElementById("kz-next").textContent="—";
+    document.getElementById("kz-until").textContent="—";
+  }
+}
+
+// ── WEBSOCKET ─────────────────────────────────
+function connectWS() {
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      document.getElementById("d-ws").className = "dot green";
+      setInterval(() => { try { ws.send(JSON.stringify({type:"ping"})); } catch(e){} }, 25000);
+    };
+    ws.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type==="bot_status")  updateBotDot(msg.running);
+      if (msg.type==="new_signal")  { appendFeedItem(msg.data); updateSymbolCard(msg.data); }
+      if (msg.type==="log")         appendLog(msg.data);
+      if (msg.type==="filters")     applyFilterUI(msg.data);
+    };
+    ws.onclose = () => {
+      document.getElementById("d-ws").className = "dot red";
+      setTimeout(connectWS, 3000);
+    };
+    ws.onerror = () => ws.close();
+  } catch(e) { setTimeout(connectWS, 3000); }
+}
+
+// ── STATUS ────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const r = await fetch(API+"/status");
+    const d = await r.json();
+    document.getElementById("d-api").className = d.mt5_ok ? "dot green" : "dot orange";
+    document.getElementById("s-api").textContent = d.mt5_ok ? "API OK" : "NO DB";
+    updateBotDot(d.bot_running);
+  } catch(e) {
+    document.getElementById("d-api").className = "dot red";
+    document.getElementById("s-api").textContent = "OFFLINE";
+  }
+}
+
+function updateBotDot(running) {
+  document.getElementById("d-bot").className = "dot " + (running?"green":"orange");
+  document.getElementById("s-bot").textContent = running ? "BOT LIVE" : "BOT IDLE";
+  const b = document.getElementById("btn-start");
+  if (running) { b.className="btn running"; b.textContent="● RUNNING"; }
+  else         { b.className="btn p";       b.textContent="▶ START"; }
+}
+
+// ── SCOREBOARD ────────────────────────────────
+async function fetchScoreboard() {
+  try {
+    const r = await fetch(API+"/scoreboard");
+    const d = await r.json();
+    document.getElementById("sc-w").textContent  = d.wins;
+    document.getElementById("sc-l").textContent  = d.losses;
+    document.getElementById("sc-r").textContent  = d.running;
+    document.getElementById("sc-wr").textContent = d.win_rate+"%";
+    document.getElementById("sc-exp").textContent = d.expired ?? "—";
+    document.getElementById("wr-bar").style.width = Math.min(d.win_rate,100)+"%";
+    const wr = d.win_rate;
+    let mode="NORMAL", mult="1.0x";
+    if (wr>=70) { mode="AGGRESSIVE"; mult="1.2x"; document.getElementById("ai-mode").className="pv g"; }
+    else if (wr<50) { mode="DEFENSIVE"; mult="0.8x"; document.getElementById("ai-mode").className="pv o"; }
+    else { document.getElementById("ai-mode").className="pv"; }
+    document.getElementById("ai-mode").textContent = mode;
+    document.getElementById("risk-mult").textContent = mult;
+    document.getElementById("mode-lbl").textContent = mode+" MODE";
+
+    // per-symbol table
+    const tbody = document.getElementById("sym-stats-body");
+    tbody.innerHTML = "";
+    (d.symbols || []).forEach(s => {
+      const wr2 = s.total > 0 ? Math.round(s.wins/s.total*100) : 0;
+      const color = wr2>=60?"var(--win)":wr2>=40?"var(--acc2)":"var(--loss)";
+      tbody.innerHTML += `<tr>
+        <td style="font-weight:700">${s.symbol}</td>
+        <td style="color:var(--win)">${s.wins}</td>
+        <td style="color:var(--loss)">${s.losses}</td>
+        <td style="color:${color};font-weight:700">${wr2}%</td>
+        <td style="color:var(--txt3)">${s.total}</td>
+      </tr>`;
+    });
+    if (!d.symbols || d.symbols.length===0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--txt3);text-align:center;padding:8px">No trades yet</td></tr>';
+    }
+    return d;
+  } catch(e) { toast("Server offline","err"); }
+}
+
+// ── SIGNAL FEED ───────────────────────────────
+async function fetchFeed() {
+  try {
+    const r = await fetch(API+"/signals");
+    const d = await r.json();
+    const feed = document.getElementById("feed");
+    feed.innerHTML = "";
+    let running=0, wins=0, losses=0;
+    openSymbols.clear();
+    d.slice(0,40).forEach(sig => {
+      if (sig.result==="RUNNING") { running++; openSymbols.add(sig.symbol); }
+      if (sig.result==="WIN")  wins++;
+      if (sig.result==="LOSS") losses++;
+      feed.appendChild(makeFeedItem(sig));
+      latestSignals[sig.symbol] = sig;
+    });
+    document.getElementById("feed-running").textContent = running+" RUNNING";
+    document.getElementById("feed-win").textContent = wins+" WIN";
+    document.getElementById("feed-loss").textContent = losses+" LOSS";
+    document.getElementById("open-badge").textContent = running+" OPEN";
+    updateAllSymbolCards();
+    updateGuardPanel();
+    updateRegimePanel();
+  } catch(e) {}
+}
+
+function makeFeedItem(sig) {
+  const cls = sig.result==="WIN"?"win":sig.result==="LOSS"?"loss":sig.result==="EXPIRED"?"expired":"running";
+  const dir = (sig.signal||"").toLowerCase();
+  let meta;
+  if (sig.result==="WIN")      meta = `✅ TP HIT | entry:${sig.entry} tp:${sig.tp}`;
+  else if (sig.result==="LOSS") meta = `❌ SL HIT | entry:${sig.entry} sl:${sig.sl}`;
+  else                          meta = `E:${sig.entry} TP:${sig.tp} SL:${sig.sl}`;
+  const time = sig.time ? sig.time.slice(11,16) : "--:--";
+  const el = document.createElement("div");
+  el.className = `fitem ${cls}`;
+  el.innerHTML = `<span class="fsym">${sig.symbol}</span><span class="sbadge ${dir}">${sig.signal}</span><span class="fmeta">${meta}</span><span class="ftime">${time}</span>`;
+  el.onclick = () => showSignalDetailData(sig);
+  return el;
+}
+
+function appendFeedItem(sig) {
+  const feed = document.getElementById("feed");
+  const el = makeFeedItem(sig);
+  feed.insertBefore(el, feed.firstChild);
+  if (feed.children.length > 40) feed.removeChild(feed.lastChild);
+  latestSignals[sig.symbol] = sig;
+  if (sig.result==="RUNNING") openSymbols.add(sig.symbol);
+  updateGuardPanel();
+  updateRegimePanel();
+}
+
+// ── SYMBOL CARDS ──────────────────────────────
+function updateAllSymbolCards() {
+  ALL_SYMBOLS.forEach(sym => {
+    const sig = latestSignals[sym];
+    if (sig) updateSymbolCard(sig);
+  });
+}
+
+function updateSymbolCard(sig) {
+  const sym = sig.symbol;
+  const bg  = document.getElementById("bg-"+sym);
+  const sc  = document.getElementById("sc-"+sym);
+  const pr  = document.getElementById("pr-"+sym);
+  const pb  = document.getElementById("prob-"+sym);
+  if (!bg) return;
+  const dir = (sig.signal||"").toLowerCase();
+  const isOpen = sig.result==="RUNNING" && (dir==="buy"||dir==="sell");
+  bg.className = "sbadge " + (dir==="buy"?"buy":dir==="sell"?"sell":dir==="hold"?"hold":"lock");
+  bg.textContent = isOpen ? "🔒 "+sig.signal : sig.signal;
+  if (sc) {
+    sc.className = "scard" + (isOpen?" locked":(dir==="buy"?" buy":dir==="sell"?" sell":""));
+  }
+  if (pr && sig.entry) pr.textContent = sig.entry;
+  if (pb && sig.probability) pb.textContent = sig.probability+"% prob";
+}
+
+// ── REGIME PANEL ──────────────────────────────
+function updateRegimePanel() {
+  const panel = document.getElementById("regime-panel");
+  const entries = Object.entries(latestSignals);
+  if (entries.length === 0) return;
+  panel.innerHTML = "";
+  entries.forEach(([sym, sig]) => {
+    const reg = sig.regime || "—";
+    const cls = reg==="TRENDING"?"t":reg==="VOLATILE"?"v":reg==="RANGING"?"rv":"n";
+    const dotCls = reg==="TRENDING"?"t":reg==="VOLATILE"?"v":reg==="RANGING"?"rv":"n";
+    const el = document.createElement("div");
+    el.className = "ri";
+    el.innerHTML = `<div class="rd ${dotCls}"></div><span class="rsym">${sym}</span><span class="rval ${cls}">${reg}</span>`;
+    panel.appendChild(el);
+  });
+}
+
+// ── TRADE GUARD PANEL ─────────────────────────
+function updateGuardPanel() {
+  const list = document.getElementById("guard-list");
+  list.innerHTML = "";
+  ALL_SYMBOLS.forEach(sym => {
+    const isLocked = openSymbols.has(sym);
+    const sig = latestSignals[sym];
+    const el = document.createElement("div");
+    el.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bdr)";
+    el.innerHTML = `
+      <span style="font-size:9px;font-family:'Space Mono',monospace;color:${isLocked?"var(--acc2)":"var(--txt3)"}">${sym}</span>
+      <span style="font-size:8px;font-family:'Space Mono',monospace;padding:1px 6px;border-radius:3px;
+        background:${isLocked?"rgba(245,158,11,.12)":"rgba(0,229,176,.08)"};
+        color:${isLocked?"var(--acc2)":"var(--txt3)"};
+        border:1px solid ${isLocked?"rgba(245,158,11,.3)":"var(--bdr)"}">
+        ${isLocked?"🔒 LOCKED":"FREE"}
+      </span>
+    `;
+    list.appendChild(el);
+  });
+}
+
+// ── LEARNING STATE (from scoreboard data, per-symbol) ──
+function updateLearningGrid(symbols) {
+  const grid = document.getElementById("learn-grid");
+  if (!symbols || symbols.length === 0) return;
+  grid.innerHTML = "";
+  symbols.forEach(s => {
+    const total = s.total || 0;
+    const wr = total > 0 ? Math.round(s.wins/total*100) : 0;
+    // estimate learned min_prob: starts at 70, +3 per loss (simplified)
+    const estMinProb = Math.min(90, Math.max(60, 70 + (s.losses * 2)));
+    const streak = s.losses > s.wins ? s.losses - s.wins : 0;
+    const cardClass = streak >= 3 ? "lcard danger" : streak >= 2 ? "lcard warning" : "lcard";
+    const barColor = wr >= 60 ? "var(--win)" : wr >= 40 ? "var(--acc2)" : "var(--loss)";
+    const el = document.createElement("div");
+    el.className = cardClass;
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="lsym">${s.symbol}</span>
+        <span class="lprob" style="color:${wr>=60?"var(--win)":wr>=40?"var(--acc2)":"var(--loss)"}">${wr}%</span>
+      </div>
+      <div class="lbar"><div class="lbarfill" style="width:${wr}%;background:${barColor}"></div></div>
+      <div class="lstat">
+        <span>W:${s.wins} L:${s.losses}</span>
+        <span style="color:${estMinProb>75?"var(--acc3)":estMinProb>70?"var(--acc2)":"var(--txt3)"}">MIN:${estMinProb}%</span>
+      </div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+// ── LOG ───────────────────────────────────────
+async function fetchLog() {
+  try {
+    const r = await fetch(API+"/log");
+    const d = await r.json();
+    const box = document.getElementById("logbox");
+    box.innerHTML = "";
+    d.slice().reverse().forEach(l => prependLog(l, false));
+  } catch(e) {}
+}
+
+function appendLog(l) { prependLog(l, true); }
+
+function prependLog(l, prepend) {
+  const box = document.getElementById("logbox");
+  const el = document.createElement("div");
+  el.className = "ll";
+  const cls = l.level==="acc"?"a":l.level==="warn"?"w":l.level==="err"?"e":"t";
+  const msg = l.msg || "";
+  // highlight AutoLearn and Guard messages
+  const highlight = msg.includes("[AutoLearn]") ? "color:var(--acc5)" :
+                    msg.includes("[Guard]")      ? "color:var(--acc2)" : "";
+  el.innerHTML = `<span class="${cls}">[${l.time}]</span> <span style="${highlight}">${msg}</span>`;
+  if (prepend) box.insertBefore(el, box.firstChild);
+  else box.appendChild(el);
+  if (box.children.length > 100) box.removeChild(box.lastChild);
+}
+
+async function clearLog() {
+  await fetch(API+"/log/clear", {method:"POST"});
+  document.getElementById("logbox").innerHTML = "";
+  toast("Log cleared");
+}
+
+// ── FILTERS ───────────────────────────────────
+async function loadFilters() {
+  try {
+    const r = await fetch(API+"/filters");
+    applyFilterUI(await r.json());
+  } catch(e) {}
+}
+
+function applyFilterUI(d) {
+  const map = {killzone:"f-kz",calendar:"f-cal",spread:"f-spread",volatility:"f-vol",market_quality:"f-mq",regime:"f-reg",mtf:"f-mtf",telegram:"f-tg"};
+  for (const [k,id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el && k in d) el.checked = d[k];
+  }
+}
+
+async function pushFilter() {
+  const data = {
+    killzone:       document.getElementById("f-kz").checked,
+    calendar:       document.getElementById("f-cal").checked,
+    spread:         document.getElementById("f-spread").checked,
+    volatility:     document.getElementById("f-vol").checked,
+    market_quality: document.getElementById("f-mq").checked,
+    regime:         document.getElementById("f-reg").checked,
+    mtf:            document.getElementById("f-mtf").checked,
+    telegram:       document.getElementById("f-tg").checked,
+  };
+  try {
+    await fetch(API+"/filters", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+    toast("Filters saved");
+  } catch(e) { toast("Server offline","err"); }
+}
+
+// ── BOT CONTROLS ──────────────────────────────
+async function startBot() {
+  try {
+    const r = await fetch(API+"/bot/start", {method:"POST"});
+    const d = await r.json();
+    if (d.ok) toast("Bot started (PID "+d.pid+")");
+    else toast(d.msg, "warn");
+  } catch(e) { toast("Server offline","err"); }
+}
+
+async function stopBot() {
+  try {
+    const r = await fetch(API+"/bot/stop", {method:"POST"});
+    const d = await r.json();
+    if (d.ok) toast("Bot stopped","warn");
+    else toast(d.msg,"warn");
+  } catch(e) { toast("Server offline","err"); }
+}
+
+function forceScan() { toast("Force scan — check Telegram for next cycle"); }
+
+async function fetchReport() {
+  const d = await fetchScoreboard();
+  if (!d) return;
+  let sym = "";
+  (d.symbols||[]).forEach(s => {
+    const wr = s.total>0?Math.round(s.wins/s.total*100):0;
+    sym += `\n  ${s.symbol.padEnd(10)} W:${s.wins}  L:${s.losses}  WR:${wr}%`;
+  });
+  const msg = `DAILY REPORT\n\nWins: ${d.wins}  Losses: ${d.losses}\nWin Rate: ${d.win_rate}%\nRunning: ${d.running}\nExpired: ${d.expired||0}\n\nPer Symbol:${sym}`;
+  showModal("Daily Report", `<pre style="font-size:10px;color:var(--txt);line-height:1.9;white-space:pre-wrap;font-family:'Space Mono',monospace">${msg}</pre>`);
+}
+
+async function clearOpenSignals() {
+  try {
+    await fetch(API+"/open_signals/clear", {method:"POST"});
+    toast("Open signals cleared","warn");
+    openSymbols.clear();
+    updateGuardPanel();
+    fetchFeed();
+  } catch(e) { toast("Server offline","err"); }
+}
+
+function setInterval_(n) {
+  scanInterval = n;
+  ["1","5","15","60"].forEach(x => {
+    const b = document.getElementById("i"+x);
+    if (b) b.className = "btn"+(parseInt(x)===n?" p":"");
+  });
+  toast("Interval: "+n+" min");
+}
+
+// ── LEARNING MODAL ────────────────────────────
+async function showLearningModal() {
+  try {
+    const r = await fetch(API+"/scoreboard");
+    const d = await r.json();
+    const syms = d.symbols || [];
+    let html = `<div style="font-size:9px;color:var(--txt3);font-family:'Space Mono',monospace;margin-bottom:10px">Bot adjusts minimum probability per symbol based on win/loss history. After losses, the bar is raised so the AI is more selective.</div>`;
+    if (syms.length === 0) {
+      html += `<div style="color:var(--txt3);font-size:10px;font-family:'Space Mono',monospace">No trades recorded yet. Learning builds automatically.</div>`;
+    } else {
+      syms.forEach(s => {
+        const total = s.total || 0;
+        const wr = total > 0 ? Math.round(s.wins/total*100) : 0;
+        const minProb = Math.min(90, Math.max(60, 70 + s.losses*2));
+        const streak = s.losses > s.wins ? s.losses - s.wins : 0;
+        const danger = streak >= 3 ? "var(--loss)" : streak >= 2 ? "var(--acc2)" : "var(--txt2)";
+        html += `
+          <div style="margin-bottom:8px;padding:8px;background:var(--bg3);border:1px solid var(--bdr);border-radius:5px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700">${s.symbol}</span>
+              <span style="font-family:'Space Mono',monospace;font-size:9px;color:${wr>=60?"var(--win)":wr>=40?"var(--acc2)":"var(--loss)"}">${wr}% WR</span>
+            </div>
+            <div class="pr"><span class="pk">Wins</span><span class="pv g">${s.wins}</span></div>
+            <div class="pr"><span class="pk">Losses</span><span class="pv r">${s.losses}</span></div>
+            <div class="pr"><span class="pk">Loss Streak</span><span style="font-size:10px;font-weight:700;font-family:'Space Mono',monospace;color:${danger}">${streak}</span></div>
+            <div class="pr"><span class="pk">Min Prob Threshold</span><span style="font-size:10px;font-weight:700;font-family:'Space Mono',monospace;color:${minProb>75?"var(--loss)":minProb>70?"var(--acc2)":"var(--acc)"}">${minProb}%</span></div>
+          </div>`;
+      });
+    }
+    showModal("🧠 Auto-Learning State", html);
+  } catch(e) { toast("Server offline","err"); }
+}
+
+// ── SIGNAL DETAIL ─────────────────────────────
+function showSignalDetail(sym) {
+  const sig = latestSignals[sym];
+  if (sig) showSignalDetailData(sig);
+  else toast("No signal for "+sym,"warn");
+}
+
+function showSignalDetailData(sig) {
+  const rr = sig.sl && sig.tp && sig.entry
+    ? Math.abs(sig.tp-sig.entry)/Math.max(Math.abs(sig.entry-sig.sl),0.00001)
+    : 0;
+  const isOpen = sig.result==="RUNNING";
+  const rows = [
+    ["Symbol",    sig.symbol, ""],
+    ["Direction", sig.signal, sig.signal==="BUY"?"color:var(--acc)":sig.signal==="SELL"?"color:var(--acc3)":""],
+    ["Entry",     sig.entry, ""],
+    ["Take Profit",sig.tp,   "color:var(--acc)"],
+    ["Stop Loss", sig.sl,    "color:var(--acc3)"],
+    ["R/R Ratio", rr.toFixed(2)+"x",""],
+    ["Probability",sig.probability+"%",""],
+    ["Regime",    sig.regime||"—",""],
+    ["Killzone",  sig.killzone||"—",""],
+    ["Trend",     sig.trend||"—",""],
+    ["MTF",       sig.mtf_confirmation||"—",""],
+    ["Structure", sig.structure||"—",""],
+    ["Order Block",sig.order_block||"—",""],
+    ["FVG",       sig.fvg||"—",""],
+    ["News",      sig.news||"—",""],
+    ["Status",    (sig.result||sig.status||"—").toUpperCase(), sig.result==="WIN"?"color:var(--win)":sig.result==="LOSS"?"color:var(--loss)":""],
+    ["Trade Guard",isOpen?"🔒 LOCKED — no new entry":"FREE","color:"+(isOpen?"var(--acc2)":"var(--txt3)")],
+  ];
+  const html = rows.map(([k,v,s]) =>
+    `<div class="pr"><span class="pk">${k}</span><span class="pv" style="${s}">${v||"—"}</span></div>`
+  ).join("");
+  showModal("Signal: "+sig.symbol, html);
+}
+
+// ── MODAL ─────────────────────────────────────
+function showModal(title, html) {
+  document.getElementById("mtitle").textContent = title;
+  document.getElementById("mbody").innerHTML = html;
+  document.getElementById("modal").classList.add("show");
+}
+function closeModal() { document.getElementById("modal").classList.remove("show"); }
+
+// ── REFRESH ───────────────────────────────────
+async function refreshAll() {
+  await Promise.all([fetchStatus(), fetchFeed(), fetchLog()]);
+  const sb = await fetchScoreboard();
+  if (sb) updateLearningGrid(sb.symbols);
+}
+
+// ── INIT ──────────────────────────────────────
+initSymbolCards();
+connectWS();
+loadFilters();
+refreshAll();
+setInterval(refreshAll, 10000);
+</script>
+</body>
+</html>
