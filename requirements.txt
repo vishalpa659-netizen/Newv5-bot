@@ -1,0 +1,18 @@
+# AI Signal Engine v5 — Requirements
+# Python 3.12 required (see runtime.txt)
+
+# Bot core
+pandas>=2.3.2
+pandas-ta==0.4.71b0
+numpy>=2.2.6
+yfinance==0.2.40
+feedparser==6.0.11
+requests==2.32.3
+bytez==0.1.0
+
+# GUI server
+flask==3.0.3
+flask-cors==4.0.1
+flask-sock==0.7.0
+gunicorn==22.0.0
+gevent==24.2.1
